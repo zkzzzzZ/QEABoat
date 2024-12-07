@@ -70,39 +70,30 @@ int main(void)
     MX_TIM1_Init();
 
     // 等待电调初始化
-    HAL_Delay(1000);
+    HAL_Delay(500);
 
     // 启动 PWM
     HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 
     // 校准 ESC：最大值信号
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000); // 2ms
-    HAL_Delay(100);
+    HAL_Delay(200);
 
     // 校准 ESC：最小值信号
     __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000); // 1ms
-    HAL_Delay(100);
+    HAL_Delay(200);
 
-    // 电机慢速启动
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1200); // 中速 1.5ms
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // 指示 LED 状态
-    HAL_Delay(100);
-
-    // 电机快速运行
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1800); // 高速
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(100);
-
-    // 电机中速运行
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500);
-    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(100);
+    // 校准 ESC：中间值信号
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500); // 1.5ms
+    HAL_Delay(200);
 
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    uint16_t i = 0;
+    uint16_t i = 1200;
     // 主循环：维持慢速运行
     while (1)
     {
+      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
+      /*
       for (i = 1500; i <= 2000; i++){
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
         HAL_Delay(10);
@@ -111,7 +102,10 @@ int main(void)
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
         HAL_Delay(10);
       }
+      */
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      HAL_Delay(3000);
+      i = 3000 - i; // 双向！
     }
 }
 
