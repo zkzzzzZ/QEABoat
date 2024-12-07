@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "tim.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -63,44 +64,57 @@ void SystemClock_Config(void);
   */
 int main(void)
 {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_TIM1_Init();
 
-  /* USER CODE BEGIN 1 */
+    // 等待电调初始化
+    HAL_Delay(1000);
 
-  /* USER CODE END 1 */
+    // 启动 PWM
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
+    // 校准 ESC：最大值信号
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000); // 2ms
     HAL_Delay(100);
+
+    // 校准 ESC：最小值信号
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000); // 1ms
+    HAL_Delay(100);
+
+    // 电机慢速启动
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1200); // 中速 1.5ms
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13); // 指示 LED 状态
+    HAL_Delay(100);
+
+    // 电机快速运行
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1800); // 高速
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(100);
+
+    // 电机中速运行
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500);
+    //HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(100);
+
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+    uint16_t i = 0;
+    // 主循环：维持慢速运行
+    while (1)
+    {
+      for (i = 1500; i <= 2000; i++){
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
+        HAL_Delay(10);
+      }
+      for (i = 2000; i >= 1500; i--){
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
+        HAL_Delay(10);
+      }
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    }
 }
+
 
 /**
   * @brief System Clock Configuration
