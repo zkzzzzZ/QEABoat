@@ -15,56 +15,96 @@
   *
   ******************************************************************************
   */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
 
-void AlignPWM(uint32_t channel){
-  // 启动 PWM
-  HAL_TIM_PWM_Start(&htim1, channel);
+/* USER CODE END PFP */
 
-  // 校准 ESC：最大值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 2000); // 2ms
-  HAL_Delay(500);
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 
-  // 校准 ESC：最小值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 1000); // 1ms
-  HAL_Delay(500);
+/* USER CODE END 0 */
 
-  // 校准 ESC：中间值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 1500); // 1.5ms
-  HAL_Delay(500);
-}
-
-
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
-    HAL_Init();
-    SystemClock_Config();
-    MX_GPIO_Init();
-    MX_TIM1_Init();
 
-    HAL_Delay(1000);
-    AlignPWM(TIM_CHANNEL_1);
-    //AlignPWM(TIM_CHANNEL_2);
+  /* USER CODE BEGIN 1 */
 
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1750);
-    //uint16_t i = 1200;
-    // 主循环：维持慢速运行
-    while (1)
-    {
-      /*
-      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-      HAL_Delay(3000);
-      i = 3000 - i; // 双向！
-      */
-    }
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_TIM1_Init();
+  MX_USART2_UART_Init();
+  MX_USART3_UART_Init();
+  /* USER CODE BEGIN 2 */
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
 }
-
 
 /**
   * @brief System Clock Configuration
