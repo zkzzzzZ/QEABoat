@@ -1,30 +1,16 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
 #include "main.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "adc.h"
+#include "dma.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 
 void SystemClock_Config(void);
 
+/*
 char buffer[256];  // 定义一个足够大的缓冲区
 int printf(const char *format, ...) {
   va_list args;
@@ -40,10 +26,26 @@ int printf(const char *format, ...) {
   return 0;
 }
 
+
+uint16_t ADCValues[4];
+uint8_t ADCCompleted = 0;
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+  ADCCompleted = (hadc == &hadc1);
+}
+
+void ADC_Read(void)
+{
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADCValues, 4);
+  while (!ADCCompleted) HAL_Delay(10);
+  ADCCompleted = 0;
+}
+*/
+
 void AlignPWM(void){
   // 启动 PWM
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 
   // 校准 ESC：最大值信号
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000); // 2ms
@@ -67,6 +69,30 @@ void AlignPWM(void){
 
 int main(void)
 {
+  /*
+    ## 无线模块
+    PB14 -> MD0
+    PB15 -> MD1
+    PB13 -> AUX
+    PB11(RX3) -> TXD
+    PB10(TX3) -> RXD
+
+    ## PWM
+    PA8(TIM1_CH1) -> ESCLeft
+    PA9(TIM1_CH2) -> ESCRight
+    PA10(TIM1_CH3) -> Beep
+
+    ## 串口
+    PA2(TX2) -> RXD(PC)
+    PA3(RX2) -> TXD(PC)
+
+    ## 传感器
+    PA4(ADC1_IN4) -> X
+    PA5(ADC1_IN5) -> Y
+    PA6(ADC1_IN6) -> Z
+    PA7(ADC1_IN7) -> 震动
+  */
+
   uint8_t received_data[8] = {0x00};
   uint8_t transmit_data[11] = {0x12, 0x12, 0x17};
 
@@ -74,8 +100,14 @@ int main(void)
   SystemClock_Config();
   MX_GPIO_Init();
   MX_TIM1_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
+
+  uint16_t ADCValues[4];
+  MX_ADC1_Init();
+  HAL_ADCEx_Calibration_Start(&hadc1);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADCValues, 4);
 
   // 初始化无线模块
   uint8_t state = 0;
@@ -86,6 +118,7 @@ int main(void)
   }
   //printf("Init complete.\n");
   HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+  //HAL_ADC_Start(&hadc1);
 
   uint8_t inited = 0;
   while (1){
@@ -93,6 +126,7 @@ int main(void)
     HAL_UART_Receive(&huart3, received_data, 8, HAL_MAX_DELAY);
     //HAL_UART_Transmit(&huart2, received_data, 8, HAL_MAX_DELAY);
     //printf(received_data);
+    //HAL_UART_Transmit(&huart2, ADC_Read(ADC_CHANNEL_7), 1, HAL_MAX_DELAY);
 
     switch (received_data[0]){
       case 0x01: { // 初始化
@@ -106,12 +140,23 @@ int main(void)
         }
       }break;
       case 0x02: { // 发送控制信号
-        if (inited){ // 若电机已初始化，则驱动
+        if (inited){ // 若电机已初始化，则驱动之
           transmit_data[3] = 0x02;
 
-          // 为左右两电机发送控制信号
-          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, received_data[1] << 8 + received_data[2]);
-          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, received_data[3] << 8 + received_data[4]);
+          // 为左右两电机与预留端口发送控制信号
+          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, received_data[1] * 256 + received_data[2]);
+          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, received_data[3] * 256 + received_data[4]);
+          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, received_data[5] * 256 + received_data[6]);
+          
+          //ADC_Read();
+          transmit_data[4] = ADCValues[0] / 256;
+          transmit_data[5] = ADCValues[0] % 256;
+          transmit_data[6] = ADCValues[1] / 256;
+          transmit_data[7] = ADCValues[1] % 256;
+          transmit_data[8] = ADCValues[2] / 256;
+          transmit_data[9] = ADCValues[2] % 256;
+          transmit_data[10] = ADCValues[3] / 16;
+          //transmit_data[11] = AV % 256;
         }
         else{ // 发送错误码
           transmit_data[3] = 0x42;
@@ -121,18 +166,6 @@ int main(void)
     HAL_UART_Transmit(&huart3, transmit_data, 11, HAL_MAX_DELAY);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
   }
-
-  /*
-    PB14 -> MD0
-    PB15 -> MD1
-    PB13 -> AUX
-    PB11(RX3) -> TXD
-    PB10(TX3) -> RXD
-
-    PA2(TX2) -> RXD(PC)
-    PA3(RX2) -> TXD(PC)
-  */
-
   /*
   HAL_Delay(1000);
   AlignPWM(TIM_CHANNEL_1);
