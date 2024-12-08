@@ -164,24 +164,6 @@ int main(void)
     HAL_UART_Transmit(&huart3, transmit_data, 11, HAL_MAX_DELAY);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
   }
-  
-  /*
-  HAL_Delay(1000);
-  AlignPWM(TIM_CHANNEL_1);
-  //AlignPWM(TIM_CHANNEL_2);
-
-  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1750);
-  //uint16_t i = 1200;
-  // 主循环：维持慢速运行
-  while (1)
-  {
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(3000);
-    i = 3000 - i; // 双向！
-  }
-  */
 }
 
 
