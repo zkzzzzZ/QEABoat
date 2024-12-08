@@ -21,38 +21,54 @@
 #include "gpio.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 void SystemClock_Config(void);
 
-void AlignPWM(uint32_t channel){
+char buffer[256];  // 定义一个足够大的缓冲区
+int printf(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  
+  // 这里使用 vsnprintf 临时生成一个缓冲区
+  vsnprintf(buffer, sizeof(buffer), format, args);
+  va_end(args);
+
+  // 通过 HAL_UART_Transmit 发送输出字符
+  HAL_UART_Transmit(&huart2, (uint8_t *)buffer, strlen(buffer), HAL_MAX_DELAY);
+  
+  return 0;
+}
+
+void AlignPWM(void){
   // 启动 PWM
-  HAL_TIM_PWM_Start(&htim1, channel);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
 
   // 校准 ESC：最大值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 2000); // 2ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000); // 2ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2000); // 2ms
   HAL_Delay(500);
 
   // 校准 ESC：最小值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 1000); // 1ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000); // 1ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 1000); // 1ms
   HAL_Delay(500);
 
   // 校准 ESC：中间值信号
-  __HAL_TIM_SET_COMPARE(&htim1, channel, 1500); // 1.5ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500); // 1.5ms
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 1500); // 1.5ms
   HAL_Delay(500);
-}
 
-char debugStr[256];
-
-void UARTDebug(void){
-  HAL_UART_Transmit(&huart2, (uint8_t *)debugStr, strlen(debugStr), 100);
+  // 校准完成后，电机默认停转
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 1500);
 }
 
 int main(void)
 {
-  uint8_t received_data[11] = {0x00};
-  uint8_t transmit_data[11] = {
-    0x12, 0x12, 0x17, 0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33, 0x44, 0x55
-  };
+  uint8_t received_data[8] = {0x00};
+  uint8_t transmit_data[11] = {0x12, 0x12, 0x17};
 
   HAL_Init();
   SystemClock_Config();
@@ -61,20 +77,47 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
 
+  // 初始化无线模块
   uint8_t state = 0;
   while (state == 0){
     state = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13);
-    sprintf(debugStr, "State: %d\n", state);
-    UARTDebug();
-    HAL_Delay(100);
+    //printf("State: %d\n", state);
+    HAL_Delay(50);
   }
+  //printf("Init complete.\n");
+  HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
-  sprintf(debugStr, "Init complete.", state);
-  UARTDebug();
-
+  uint8_t inited = 0;
   while (1){
-    HAL_UART_Receive(&huart3, received_data, 9, HAL_MAX_DELAY);
-    HAL_UART_Transmit(&huart2, received_data, 9, HAL_MAX_DELAY);
+    // 处理遥控数据
+    HAL_UART_Receive(&huart3, received_data, 8, HAL_MAX_DELAY);
+    //HAL_UART_Transmit(&huart2, received_data, 8, HAL_MAX_DELAY);
+    //printf(received_data);
+
+    switch (received_data[0]){
+      case 0x01: { // 初始化
+        if (inited){ // 发送错误码
+          transmit_data[3] = 0x41;
+        }
+        else{
+          AlignPWM();
+          transmit_data[3] = 0x01;
+          inited = 1;
+        }
+      }break;
+      case 0x02: { // 发送控制信号
+        if (inited){ // 若电机已初始化，则驱动
+          transmit_data[3] = 0x02;
+
+          // 为左右两电机发送控制信号
+          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, received_data[1] << 8 + received_data[2]);
+          __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, received_data[3] << 8 + received_data[4]);
+        }
+        else{ // 发送错误码
+          transmit_data[3] = 0x42;
+        }
+      }break;
+    }
     HAL_UART_Transmit(&huart3, transmit_data, 11, HAL_MAX_DELAY);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
   }
