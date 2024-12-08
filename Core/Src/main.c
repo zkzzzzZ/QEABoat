@@ -15,53 +15,30 @@
   *
   ******************************************************************************
   */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "tim.h"
 #include "gpio.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
 
-/* USER CODE END PFP */
+void AlignPWM(uint32_t channel){
+  // 启动 PWM
+  HAL_TIM_PWM_Start(&htim1, channel);
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
+  // 校准 ESC：最大值信号
+  __HAL_TIM_SET_COMPARE(&htim1, channel, 2000); // 2ms
+  HAL_Delay(500);
 
-/* USER CODE END 0 */
+  // 校准 ESC：最小值信号
+  __HAL_TIM_SET_COMPARE(&htim1, channel, 1000); // 1ms
+  HAL_Delay(500);
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
+  // 校准 ESC：中间值信号
+  __HAL_TIM_SET_COMPARE(&htim1, channel, 1500); // 1.5ms
+  HAL_Delay(500);
+}
+
+
 int main(void)
 {
     HAL_Init();
@@ -69,43 +46,22 @@ int main(void)
     MX_GPIO_Init();
     MX_TIM1_Init();
 
-    // 等待电调初始化
-    HAL_Delay(500);
-
-    // 启动 PWM
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-
-    // 校准 ESC：最大值信号
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000); // 2ms
-    HAL_Delay(200);
-
-    // 校准 ESC：最小值信号
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1000); // 1ms
-    HAL_Delay(200);
-
-    // 校准 ESC：中间值信号
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1500); // 1.5ms
-    HAL_Delay(200);
+    HAL_Delay(1000);
+    AlignPWM(TIM_CHANNEL_1);
+    //AlignPWM(TIM_CHANNEL_2);
 
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    uint16_t i = 1200;
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 1750);
+    //uint16_t i = 1200;
     // 主循环：维持慢速运行
     while (1)
     {
-      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
       /*
-      for (i = 1500; i <= 2000; i++){
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
-        HAL_Delay(10);
-      }
-      for (i = 2000; i >= 1500; i--){
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
-        HAL_Delay(10);
-      }
-      */
+      __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, i);
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
       HAL_Delay(3000);
       i = 3000 - i; // 双向！
+      */
     }
 }
 
