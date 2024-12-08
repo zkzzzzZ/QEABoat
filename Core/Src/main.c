@@ -4,13 +4,12 @@
 #include "gpio.h"
 #include "adc.h"
 #include "dma.h"
+
+/*
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
 
-void SystemClock_Config(void);
-
-/*
 char buffer[256];  // 定义一个足够大的缓冲区
 int printf(const char *format, ...) {
   va_list args;
@@ -40,6 +39,8 @@ void ADC_Read(void)
   ADCCompleted = 0;
 }
 */
+
+void SystemClock_Config(void);
 
 void AlignPWM(void){
   // 启动 PWM
@@ -104,6 +105,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
 
+  // 初始化 ADC
   uint16_t ADCValues[4];
   MX_ADC1_Init();
   HAL_ADCEx_Calibration_Start(&hadc1);
@@ -113,12 +115,9 @@ int main(void)
   uint8_t state = 0;
   while (state == 0){
     state = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_13);
-    //printf("State: %d\n", state);
     HAL_Delay(50);
   }
-  //printf("Init complete.\n");
   HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-  //HAL_ADC_Start(&hadc1);
 
   uint8_t inited = 0;
   while (1){
@@ -156,7 +155,6 @@ int main(void)
           transmit_data[8] = ADCValues[2] / 256;
           transmit_data[9] = ADCValues[2] % 256;
           transmit_data[10] = ADCValues[3] / 16;
-          //transmit_data[11] = AV % 256;
         }
         else{ // 发送错误码
           transmit_data[3] = 0x42;
@@ -166,6 +164,7 @@ int main(void)
     HAL_UART_Transmit(&huart3, transmit_data, 11, HAL_MAX_DELAY);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
   }
+  
   /*
   HAL_Delay(1000);
   AlignPWM(TIM_CHANNEL_1);
